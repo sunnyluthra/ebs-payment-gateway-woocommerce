@@ -7,10 +7,10 @@ Version: 1.0
 Author: mRova
 Author URI: http://www.mrova.com/
 
-    Copyright: © 2009-2013 mRova.
-    License: GNU General Public License v3.0
-    License URI: http://www.gnu.org/licenses/gpl-3.0.html
- */
+Copyright: © 2009-2013 mRova.
+License: GNU General Public License v3.0
+License URI: http://www.gnu.org/licenses/gpl-3.0.html
+*/
 
     add_action('plugins_loaded', 'woocommerce_mrova_ebs_init', 0);
 
@@ -19,7 +19,7 @@ Author URI: http://www.mrova.com/
         if ( !class_exists( 'WC_Payment_Gateway' ) ) return;
 
 
-        if($_GET['msg']!=''){
+        if ( isset( $_GET['msg'] ) && !empty( $_GET['msg'] ) ) {
             add_action('the_content', 'showMessage');
         }
 
@@ -47,12 +47,12 @@ Author URI: http://www.mrova.com/
             */
             $this -> title = $this -> get_option('title');
             $this -> description = $this -> get_option('description');
-            
+
             $this -> account_id = $this -> get_option('account_id');
             $this -> secret_key = $this -> get_option('secret_key');
-            
+
             $this -> redirect_page_id = $this -> get_option('redirect_page_id');
-            
+
             $this -> liveurl = 'https://secure.ebs.in/pg/ma/sale/pay';
             $this -> mode = $this -> get_option('mode');
 
@@ -69,8 +69,8 @@ Author URI: http://www.mrova.com/
             } else {
                 add_action( 'woocommerce_update_options_payment_gateways', array( &$this, 'process_admin_options' ) );
             }
-            add_action('woocommerce_receipt_ccavenue', array(&$this, 'receipt_page'));
-            add_action('woocommerce_thankyou_ccavenue',array(&$this, 'thankyou_page'));
+            add_action('woocommerce_receipt_ebs', array(&$this, 'receipt_page'));
+            add_action('woocommerce_thankyou_ebs',array(&$this, 'thankyou_page'));
         }
 
         function init_form_fields(){
@@ -99,11 +99,11 @@ Author URI: http://www.mrova.com/
                     'title' => __('Working Key', 'mrova'),
                     'type' => 'text',
                     'description' =>  __('Please enter your ebs secret key', 'mrova'),
-                    ),          
+                    ),
                 'mode' => array(
-                    'title' => __( 'Mode', 'mrova' ), 
-                    'type' => 'checkbox', 
-                    'label' => __( 'Enable Test Mode', 'mrova' ), 
+                    'title' => __( 'Mode', 'mrova' ),
+                    'type' => 'checkbox',
+                    'label' => __( 'Enable Test Mode', 'mrova' ),
                     'default' => 'yes',
                     'description' => __( 'This controls for selecting the payment mode as TEST or LIVE.', 'mrova' )
                     ),
@@ -160,7 +160,7 @@ Author URI: http://www.mrova.com/
                 $redirect_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
 
                 $order_id = (int)$_REQUEST['order_id'];
-                
+
                 $this -> msg['class'] = 'error';
                 $this -> msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
 
@@ -170,13 +170,13 @@ Author URI: http://www.mrova.com/
 
                         $path = plugin_dir_path(__FILE__);
                         require($path.'Rc43.php');
-                        
+
                         $DR = preg_replace("/\s/","+",$_GET['DR']);
                         $rc4 = new Crypt_RC4($this->secret_key);
                         $QueryString = base64_decode($DR);
                         $rc4->decrypt($QueryString);
                         $QueryString = explode('&',$QueryString);
-                        
+
                         $response = array();
                         foreach($QueryString as $param){
                             $param = explode('=',$param);
@@ -188,7 +188,7 @@ Author URI: http://www.mrova.com/
                         if($response['ResponseCode']==0){
                             if($response['IsFlagged'] == "NO" && $response['Amount'] == $order->order_total){
                                 $notes  = $responseMsg.'. Transaction ID: '.$response['TransactionID'];
-                                $status = 'Received';                                       
+                                $status = 'Received';
 
                                 $this -> msg['message'] = "Thank you for shopping with us. Your account has been charged and your transaction is successful. We will be shipping your order to you soon.";
                                 $this -> msg['class'] = 'success';
@@ -206,20 +206,20 @@ Author URI: http://www.mrova.com/
                                 $this -> msg['message'] = $responseMsg.". The payment has been kept on hold until the manual verification is completed and authorized by EBS";
                                 $this -> msg['class'] = 'info';
                                 $order->add_order_note(__($this -> msg['message'], 'woocommerce'));
-                                $order->payment_complete();  
-                                
+                                $order->payment_complete();
+
                             }
                         }
                         else{
                             $note  = $response['ResponseMessage'].'. Transaction ID: '.$response['TransactionID'];
                             $this -> msg['class'] = 'error';
                             $this -> msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
-                               
+
                             $order -> update_status('failed');
                             $order->add_order_note(__($notes, 'woocommerce'));
-                          
+
                         }
-                    
+
                     }catch(Exception $e){
                             // $errorOccurred = true;
                         $msg = "Error";
@@ -248,8 +248,8 @@ Author URI: http://www.mrova.com/
             $redirect_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
           //For wooCoomerce 2.0
             $redirect_url = add_query_arg( 'wc-api', get_class( $this ), $redirect_url );
-            
-            $order_id = $order->id;     
+
+            $order_id = $order->id;
             $description = $order->customer_note;
             if(empty($description)){
                 $description = "Order is ".$order_id;
@@ -259,10 +259,19 @@ Author URI: http://www.mrova.com/
             $mode = $this-> mode;
             $amount = $order->order_total;
             $mode = ($mode == "yes") ? "TEST" : "LIVE";
-            
+
             $hash = $secret_key."|".$account_id."|".$amount."|".$order_id."|".$redirect_url."|".$mode;
             $secure_hash = md5($hash);
-            
+
+			error_log($secret_key);
+			error_log($account_id);
+			error_log($amount);
+			error_log($order_id);
+			error_log($redirect_url);
+			error_log($mode);
+			error_log($hash);
+			error_log($secure_hash);
+
             $ebs_args = array(
                 'account_id' => $account_id,
                 'secret_key' => $secret_key,
@@ -284,7 +293,7 @@ Author URI: http://www.mrova.com/
                 'ship_state' => $order->shipping_state,
                 'ship_country' => $order->shipping_country,
                 'ship_postal_code' => $order->shipping_postcode,
-                'return_url' => $return_url,
+                'return_url' => $redirect_url,
                 'secure_hash' => $secure_hash);
 
 $ebs_args_array = array();
