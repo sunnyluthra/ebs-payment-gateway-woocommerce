@@ -263,15 +263,6 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
             $hash = $secret_key."|".$account_id."|".$amount."|".$order_id."|".$redirect_url."|".$mode;
             $secure_hash = md5($hash);
 
-			error_log($secret_key);
-			error_log($account_id);
-			error_log($amount);
-			error_log($order_id);
-			error_log($redirect_url);
-			error_log($mode);
-			error_log($hash);
-			error_log($secure_hash);
-
             $ebs_args = array(
                 'account_id' => $account_id,
                 'secret_key' => $secret_key,
