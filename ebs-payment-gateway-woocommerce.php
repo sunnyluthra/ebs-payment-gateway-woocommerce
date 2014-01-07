@@ -219,7 +219,7 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
                             $order->add_order_note(__($notes, 'woocommerce'));
 
                         }
-
+						do_action( 'ebs_payment_gateway_after_payment_processed', $response, $order_id, $order );
                     }catch(Exception $e){
                             // $errorOccurred = true;
                         $msg = "Error";
