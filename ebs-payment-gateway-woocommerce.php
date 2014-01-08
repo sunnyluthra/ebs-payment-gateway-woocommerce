@@ -12,7 +12,7 @@ License: GNU General Public License v3.0
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 */
 
-    add_action('plugins_loaded', 'woocommerce_mrova_ebs_init', 0);
+    add_action('init', 'woocommerce_mrova_ebs_init', 10);
 
     function woocommerce_mrova_ebs_init() {
 
@@ -70,7 +70,7 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
                 add_action( 'woocommerce_update_options_payment_gateways', array( &$this, 'process_admin_options' ) );
             }
             add_action('woocommerce_receipt_ebs', array(&$this, 'receipt_page'));
-            add_action('woocommerce_thankyou_ebs',array(&$this, 'thankyou_page'));
+//            add_action('woocommerce_thankyou_ebs',array(&$this, 'thankyou_page'));
         }
 
         function init_form_fields(){
@@ -156,10 +156,26 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
          **/
         function check_ebs_response(){
             global $woocommerce;
-            if(isset($_REQUEST['order_id']) && isset($_REQUEST['DR'])){
+            if(isset($_REQUEST['DR'])){
                 $redirect_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
 
-                $order_id = (int)$_REQUEST['order_id'];
+				$path = plugin_dir_path(__FILE__);
+				require($path.'Rc43.php');
+
+				$DR = preg_replace("/\s/","+",$_GET['DR']);
+				$rc4 = new Crypt_RC4($this->secret_key);
+				$QueryString = base64_decode($DR);
+				$rc4->decrypt($QueryString);
+				$QueryString = explode('&',$QueryString);
+
+				$response = array();
+				foreach($QueryString as $param){
+					$param = explode('=',$param);
+					$response[$param[0]] = urldecode($param[1]);
+				}
+
+				$order_id = (int)$response['MerchantRefNo'];
+				$order_key = '';
 
                 $this -> msg['class'] = 'error';
                 $this -> msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
@@ -167,27 +183,13 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
                 if($order_id != ''){
                     try{
                         $order = new WC_Order($order_id);
+						$order_key = $order->order_key;
 
-                        $path = plugin_dir_path(__FILE__);
-                        require($path.'Rc43.php');
-
-                        $DR = preg_replace("/\s/","+",$_GET['DR']);
-                        $rc4 = new Crypt_RC4($this->secret_key);
-                        $QueryString = base64_decode($DR);
-                        $rc4->decrypt($QueryString);
-                        $QueryString = explode('&',$QueryString);
-
-                        $response = array();
-                        foreach($QueryString as $param){
-                            $param = explode('=',$param);
-                            $response[$param[0]] = urldecode($param[1]);
-                        }
-
-                        $responseMsg = $response['ResponseMessage'];
+						$responseMsg = $response['ResponseMessage'];
 
                         if($response['ResponseCode']==0){
                             if($response['IsFlagged'] == "NO" && $response['Amount'] == $order->order_total){
-                                $notes  = $responseMsg.'. Transaction ID: '.$response['TransactionID'];
+                                $notes  = $responseMsg.'. Transaction ID: '.$response['TransactionID']. ' Payment ID: '.$response['PaymentID'];
                                 $status = 'Received';
 
                                 $this -> msg['message'] = "Thank you for shopping with us. Your account has been charged and your transaction is successful. We will be shipping your order to you soon.";
@@ -211,7 +213,7 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
                             }
                         }
                         else{
-                            $note  = $response['ResponseMessage'].'. Transaction ID: '.$response['TransactionID'];
+                            $note  = $response['ResponseMessage'].'. Transaction ID: '.$response['TransactionID']. ' Payment ID: '.$response['PaymentID'];
                             $this -> msg['class'] = 'error';
                             $this -> msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
 
@@ -228,7 +230,9 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
                 }
                 $redirect_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
                 //For wooCoomerce 2.0
-                $redirect_url = add_query_arg( array('msg'=> urlencode($this -> msg['message']), 'type'=>$this -> msg['class']), $redirect_url );
+//                $redirect_url = add_query_arg( array('msg'=> urlencode($this -> msg['message']), 'type'=>$this -> msg['class']), $redirect_url );
+
+				$redirect_url = add_query_arg( array( 'order' => $order_id, 'key' => $order_key ), $redirect_url );
 
                 wp_redirect( $redirect_url );
                 exit;
@@ -299,7 +303,7 @@ return '<form action="'.$this -> liveurl.'" method="post" id="ebs_payment_form">
 jQuery(function(){
     jQuery("body").block(
     {
-        message: "<img src=\"'.$woocommerce->plugin_url().'/assets/images/ajax-loader.gif\" alt=\"Redirecting…\" style=\"float:left; margin-right: 10px;\" />'.__('Thank you for your order. We are now redirecting you to ebs to make payment.', 'mrova').'",
+        message: "'.__('Thank you for your order. We are now redirecting you to ebs to make payment.', 'mrova').'",
         overlayCSS:
         {
             background: "#fff",
