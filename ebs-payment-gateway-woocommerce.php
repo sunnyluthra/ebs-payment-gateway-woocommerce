@@ -248,6 +248,7 @@ License URI: http://www.gnu.org/licenses/gpl-3.0.html
             $redirect_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
           //For wooCoomerce 2.0
             $redirect_url = add_query_arg( 'wc-api', get_class( $this ), $redirect_url );
+			$redirect_url = add_query_arg( 'DR', '{DR}', $redirect_url  );
 
             $order_id = $order->id;
             $description = $order->customer_note;
